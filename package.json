@@ -1,0 +1,26 @@
+{
+  "name": "clerkie-coding",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "babel-node": "babel-node --presets=env",
+    "start": "nodemon --exec npm run babel-node -- ./app.js",
+    "build": "babel src -d dist"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird": "^3.5.2",
+    "body-parser": "^1.18.3",
+    "connect-timeout": "^1.9.0",
+    "dayjs": "^1.7.7",
+    "express": "^4.16.4",
+    "mongodb": "^3.1.8",
+    "mongoose": "^5.3.4"
+  },
+  "devDependencies": {
+    "babel-preset-env": "^1.7.0"
+  }
+}
