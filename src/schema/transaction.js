@@ -13,9 +13,9 @@ const TransactionSchema = new Schema({
   updated_at: {type: Date, default: Date.now},
 });
 
+TransactionSchema.index({trans_id: 1}, {unique: true});
 TransactionSchema.index({company: 1});
 TransactionSchema.index({name: 1});
 TransactionSchema.index({user_id: 1});
-TransactionSchema.index({trans_id: 1}, {unique: true});
 
 export default mongoose.model('Transaction', TransactionSchema);

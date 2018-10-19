@@ -5,8 +5,8 @@ import Pattern from '../model/pattern';
 import {detectPattern, markNonRecurring} from './pattern';
 import {INTERVAL_ACCEPTABLE_ERROR, TRANSACTION_FIELDS, ONE_DAY} from './constants';
 
-const PULL_DATE = new Date('2018-08-10'); // for testing TODO comment
-// const PULL_DATE = Date.now();
+// const PULL_DATE = new Date('2018-08-10'); // for testing
+const PULL_DATE = Date.now();
 
 async function upsertHandler(req, res) {
     // get and parse post request parameters

@@ -7,7 +7,7 @@ import {
 } from './constants';
 import Transaction from '../model/transaction';
 
-// updateIntervalValue and updateAverageAmount are reserved for outliers
+// updateIntervalValue and updateAverageAmount are for outliers
 function updatePattern(transId, amount, date, pattern, updateIntervalValue = true, updateAverageAmount = true) {
     let newAvgInterval = 0, newAvgAmount = 0;
 
@@ -19,7 +19,6 @@ function updatePattern(transId, amount, date, pattern, updateIntervalValue = tru
     }
 
     if (updateAverageAmount) {
-        // TODO remember to exclude noise value from transaction length
         newAvgAmount = (amount + pattern.transactions.length * pattern.average_amount) / (pattern.transactions.length + 1);
     } else {
         newAvgAmount = pattern.average_amount;
