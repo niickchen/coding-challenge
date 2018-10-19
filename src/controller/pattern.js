@@ -1,3 +1,4 @@
+import Pattern from '../model/pattern';
 import {ONE_DAY, INTERVAL_ACCEPTABLE_ERROR, INTERVAL_ACCEPTABLE_VALUES_IN_DAYS} from './constants';
 
 function updatePattern(transId, amount, date, pattern) {
@@ -17,6 +18,16 @@ function updatePattern(transId, amount, date, pattern) {
             amount_pattern: [], // TODO
             recurring: true,
         },
+    );
+}
+
+// TODO remove skipped field
+// skip this pattern and all transactions under this pattern
+export function skip(pattern) {
+    return Pattern.update({_id: pattern._id}, {recurring: false, skipped: true, updated_at: Date.now()}).then(
+        () =>  Promise.all(pattern.transactions, transId => {
+            return Transaction.update({trans_id: transId}, {skipped: true, updated_at: Date.now()});
+        })
     );
 }
 
