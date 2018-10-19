@@ -1,15 +1,9 @@
 import dayjs from 'dayjs';
 import Transaction from '../model/transaction';
-import helper from '../helper/helper';
+import helper from './helper';
 import Pattern from '../model/pattern';
-
-const ONE_DAY = 24 * 60 * 60 * 1000;
-const ONE_HOUR = 60 * 60 * 1000;
-const INTERVAL_ACCEPTABLE_ERROR = 6 * ONE_DAY;
-const TRANSACTION_FIELDS = ['trans_id', 'user_id', 'name', 'amount', 'date'];
-const INTERVAL_ACCEPTABLE_VALUES_IN_DAYS = [5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 31, 32, 33, 34, 85, 86, 87, 
-    88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 359, 360, 361, 
-    362, 363, 364, 365, 366, 367, 368, 369, 370, 371];
+import {detectPattern} from './pattern';
+import {INTERVAL_ACCEPTABLE_ERROR, TRANSACTION_FIELDS} from './constants';
 
 const PULL_DATE = new Date('2018-08-10'); // for testing TODO change to Date.now()
 
@@ -56,89 +50,6 @@ function upsertOneTx(transaction) {
         date,
         company,
     }).then(() => detectPattern(company, userId, transId, amount, date), e => console.log(e));
-}
-
-function updatePattern(transId, amount, date, pattern) {
-    const interval = Math.abs(date - pattern.last_transaction_time);
-    const newAvgInterval = (pattern.average_interval * (pattern.transactions.length - 1) + interval) / pattern.transactions.length;
-    const trans = pattern.transactions;
-    trans.push(transId);
-    
-    return Pattern.update(
-        {_id: pattern._id},
-        {
-            last_transaction_time: date,
-            last_transaction_id: transId,
-            transactions: trans,
-            updated_at: Date.now(),
-            average_interval: newAvgInterval,
-            amount_pattern: [], // TODO
-            recurring: true,
-        },
-    );
-}
-
-async function detectPattern(company, userId, transId, amount, date) {
-    const pattern = await Pattern.getByCompanyAndUser(company, userId);
-
-    if (!pattern) {
-        Pattern.add({
-            company,
-            user_id: userId,
-            last_transaction_id: transId,
-            last_transaction_time: date,
-            transactions: [transId],
-            amount_pattern: [amount],
-            average_interval: 0,
-        }).catch(e => console.log(e));
-        return;
-    }
-
-    // TODO compare amount
-    if (pattern.recurring) {
-        let interval = Math.abs(date - pattern.last_transaction_time);
-        if (interval < pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR 
-            && interval > pattern.average_interval - INTERVAL_ACCEPTABLE_ERROR) {
-                await updatePattern(transId, amount, date, pattern);
-            }
-
-        else {
-            // it's okay to miss one time
-            interval = interval / 2;
-            if (interval < pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR 
-                && interval > pattern.average_interval - INTERVAL_ACCEPTABLE_ERROR) {
-                    await updatePattern(transId, amount, date, pattern);
-                }
-            // if past expected time
-            else if (Math.abs(date - pattern.last_transaction_time) >= pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR) {
-                await skip(pattern);
-            }
-            // maybe one-time purchase
-            else {
-                // not add into this pattern
-                // TODO: TBD
-                return;
-            }
-        }
-    }
-
-    else {
-        if (pattern.transactions.length == 1) {
-            const dayInterval = Math.round(Math.abs(date - pattern.last_transaction_time) / ONE_DAY);
-            // TODO add number range
-            if (INTERVAL_ACCEPTABLE_VALUES_IN_DAYS.includes(dayInterval)) {
-                await updatePattern(transId, amount, date, pattern);
-            }
-            else {
-                // TODO add to a new list, also change Pattern.get to pattern.find
-            }
-        }
-        // a group of non-occuring transactions
-        else {
-            
-            // TODO i dont think theres cases like this
-        }
-    }
 }
 
 async function getRecurringHandler(req, res) {
