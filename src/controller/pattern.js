@@ -13,20 +13,21 @@ function updatePattern(transId, amount, date, pattern, updateIntervalValue = tru
 
     if (updateIntervalValue) {
         const interval = Math.abs(date - pattern.last_transaction_time);
-        newAvgInterval = (pattern.average_interval * (pattern.transactions.length - 1) + interval) / pattern.transactions.length;
+        newAvgInterval = (pattern.average_interval * 
+            (pattern.transactions.length - 1) + interval) / pattern.transactions.length;
     } else {
         newAvgInterval = pattern.average_interval;
     }
 
     if (updateAverageAmount) {
-        newAvgAmount = (amount + pattern.transactions.length * pattern.average_amount) / (pattern.transactions.length + 1);
+        newAvgAmount = (amount + 
+            pattern.transactions.length * pattern.average_amount) / (pattern.transactions.length + 1);
     } else {
         newAvgAmount = pattern.average_amount;
     }
     
     const trans = pattern.transactions;
     trans.push(transId);
-    
     return Pattern.update(
         {_id: pattern._id},
         {
@@ -57,7 +58,8 @@ export function markNonRecurring(pattern) {
 // re-detect patterns for all transactions under the 'company' and by the 'userId'
 async function reDetection(company, userId) {
     const trans = await Transaction.findByQuery({company, user_id: userId}, {sort: {date: 1}});
-    return Promise.each(trans, transaction => detectPattern(company, userId, transaction.trans_id, transaction.amount, transaction.date));
+    return Promise.each(trans, transaction => 
+        detectPattern(company, userId, transaction.trans_id, transaction.amount, transaction.date));
 }
 
 // main logic
@@ -74,7 +76,6 @@ export async function detectPattern(company, userId, transId, amount, date) {
         }).catch(e => console.log(e));
 
     const patterns = await Pattern.findByQuery({company, user_id: userId});
-
     // if no pattern exists for this company and userId, just create a new pattern and return
     if (!patterns || patterns.length == 0) {
         await addNewPattern();
@@ -82,7 +83,6 @@ export async function detectPattern(company, userId, transId, amount, date) {
     }
 
     let latestTime = null;
-
     for (let pattern of patterns) {
         if (latestTime < pattern.last_transaction_time) latestTime = pattern.last_transaction_time;
     }
@@ -95,18 +95,19 @@ export async function detectPattern(company, userId, transId, amount, date) {
     }
 
     // sort patterns by transactions list length (descending) and by last_transaction_time (ascending)
-    patterns.sort((a, b) => b.transactions.length - a.transactions.length || a.last_transaction_time - b.last_transaction_time);
+    patterns.sort((a, b) => b.transactions.length - a.transactions.length 
+        || a.last_transaction_time - b.last_transaction_time);
 
     let foundPatternFlag = false;
 
     // iterate thru all patterns and look for a suitable one
     // return if find one
     await Promise.each(patterns, pattern => {
-        
         if (foundPatternFlag) return;
         // if the amount is way off the average value of this pattern, just continue to check next pattern
         if (pattern.average_amount == 0 && Math.abs(amount) > 30) return; // uh a magic number
-        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount) > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
+        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount) 
+            > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
 
         // got it
         let interval = Math.abs(date - pattern.last_transaction_time);
@@ -124,7 +125,6 @@ export async function detectPattern(company, userId, transId, amount, date) {
             foundPatternFlag = true;
             return updatePattern(transId, amount, date, pattern, false, true);
         }
-
     });
 
     if (foundPatternFlag) return;
@@ -133,7 +133,8 @@ export async function detectPattern(company, userId, transId, amount, date) {
     await Promise.each(patterns, pattern => {
         if (foundPatternFlag) return;
         if (pattern.average_amount == 0 && Math.abs(amount) > 30) return; // uh a magic number
-        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount) > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
+        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount)
+            > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
 
         if (!pattern.recurring && pattern.transactions.length === 1) {
             // check if it's an an acceptable interval

@@ -11,11 +11,8 @@ const PULL_DATE = Date.now();
 async function upsertHandler(req, res) {
     // get and parse post request parameters
     const transactions = req.body.transactions;
-
     transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-
     await Promise.each(transactions, transaction => upsertOneTx(transaction));
-
     const ret = await getRecurring();
     if (!ret.ok) res.status(400).send({recurring_trans: []})
     else res.send({recurring_trans: ret.recurring_trans});
@@ -40,7 +37,8 @@ function upsertOneTx(transaction) {
     // extract company name from tx name
     const endingDigitsRegex = /[ 0-9]*$/g;
     const mixOfABAndDigitsRegex = /([0-9]+[a-zA-Z]+|[a-zA-Z]+[0-9]+)[0-9a-zA-Z]*/g;
-    const company = name.replace(endingDigitsRegex, '').replace(mixOfABAndDigitsRegex, '').trim().replace(/ +/g, ' ').toLowerCase();
+    const company = name.replace(endingDigitsRegex, '')
+        .replace(mixOfABAndDigitsRegex, '').trim().replace(/ +/g, ' ').toLowerCase();
     return Transaction.add({
         trans_id: transId,
         user_id: userId,
@@ -62,11 +60,9 @@ async function getRecurringHandler(req, res) {
 
 async function getRecurring() {
     return Pattern.findByQuery({recurring: true}).then(patterns => {
-        
         if (!patterns) return {ok: true, recurring_trans: {}};
 
         const companyTxDict = {}; // key: company, value: recurring transactions under the company by all users
-
         return Promise.each(patterns, 
             pattern => {
                 if (!pattern || !pattern.transactions || pattern.transactions.length < 1) return;
@@ -78,25 +74,24 @@ async function getRecurring() {
                         const tx = await Transaction.getByTxId(transId);
                         return companyTxDict[pattern.company].push(tx);
                     });
-
                 }
 
                 // if past predicted date already, mark this pattern as non-recurring
                 else return markNonRecurring(pattern);
             })
             .then(async () => {
-
                 const recurring_trans = [];
-
                 await Promise.each(Object.values(companyTxDict), async trans => {
-                    trans.sort((a, b) => b.date - a.date); // sort transactions by date in descending order
+                    // sort transactions by date in descending order
+                    trans.sort((a, b) => b.date - a.date);
                     const latestTransaction = trans[0];
                     const pat = await Pattern.getByLastTxId(latestTransaction.trans_id);
                     return recurring_trans.push({
                         name: latestTransaction.name,
                         user_id: latestTransaction.user_id,
                         next_amt: helper.roundToTwoDecimalSpaces(pat.average_amount),
-                        next_date: dayjs(latestTransaction.date).add(Math.round(pat.average_interval / ONE_DAY), 'day').toDate(),
+                        next_date: dayjs(latestTransaction.date)
+                            .add(Math.round(pat.average_interval / ONE_DAY), 'day').toDate(),
                         transactions: helper.keepFields(trans, TRANSACTION_FIELDS), // strip unnecessary fields
                     });
                 });
