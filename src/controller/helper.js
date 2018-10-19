@@ -13,5 +13,6 @@ function roundToTwoDecimalSpaces(num) {
 }
 
 export default {
-    keepFields, roundToTwoDecimalSpaces
+    keepFields,
+    roundToTwoDecimalSpaces
 }
