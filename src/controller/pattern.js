@@ -61,6 +61,7 @@ async function reDetection(company, userId) {
     return Promise.each(trans, transaction => detectPattern(company, userId, transaction.trans_id, transaction.amount, transaction.date));
 }
 
+// main logic
 export async function detectPattern(company, userId, transId, amount, date) {
     const addNewPattern = () =>
         Pattern.add({
