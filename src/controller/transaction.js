@@ -16,7 +16,7 @@ async function upsertHandler(req, res) {
 
     await Promise.each(transactions, transaction => upsertOneTx(transaction));
 
-    const ret = await getRecurring(); // TODO company should be updated company list
+    const ret = await getRecurring();
     if (!ret.ok) res.status(400).send({recurring_trans: []})
     else res.send({recurring_trans: ret.recurring_trans});
 }
@@ -86,7 +86,7 @@ async function getRecurring() {
                 return recurring_trans.push({
                     name: latestTransaction.name,
                     user_id: latestTransaction.user_id,
-                    next_amt: 1, // TODO
+                    next_amt: helper.roundToTwoDecimalSpaces(pat.average_amount),
                     next_date: dayjs(latestTransaction.date).add(Math.round(pat.average_interval / ONE_DAY), 'day').toDate(),
                     transactions: helper.keepFields(trans, TRANSACTION_FIELDS),
                 });

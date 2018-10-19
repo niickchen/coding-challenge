@@ -26,19 +26,6 @@ export default {
     return Transaction.find(query, null, opt).lean();
   },
 
-  // TODO
-  // find Transactions by query and grouped by user_id
-  findByQueryAndGroupByUser: query => {
-    return Transaction.aggregate([
-      {$match: {...query}},
-      {$group: {_id: '$user_id'}},
-      {$project: {
-        _id: '$user_id',
-        
-      }}
-    ]).exec();
-  },
-
   // get count by query
   getCountByQuery: query => {
     return Transaction.countDocuments(query);

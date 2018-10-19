@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
-const ObjectId = Schema.Types.ObjectId;
 
 const PatternSchema = new Schema({
   company: {type: String, required: true},
@@ -13,7 +12,7 @@ const PatternSchema = new Schema({
   updated_at: {type: Date, default: Date.now},
   recurring: {type: Boolean, default: false},
   archived: {type: Boolean, default: false},
-  amount_pattern: {type: [Number], default: []},
+  average_amount: {type: Number, default: 0},
   average_interval: {type: Number, default: 0}, // milliseconds
 });
 

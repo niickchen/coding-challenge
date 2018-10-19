@@ -8,6 +8,10 @@ function keepFields(objects, fields) {
     })
 }
 
+function roundToTwoDecimalSpaces(num) {
+    return Math.round(num * 100) / 100;
+}
+
 export default {
-    keepFields,
+    keepFields, roundToTwoDecimalSpaces
 }

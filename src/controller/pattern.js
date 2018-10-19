@@ -1,14 +1,22 @@
 import Pattern from '../model/pattern';
-import {ONE_DAY, INTERVAL_ACCEPTABLE_ERROR, INTERVAL_ACCEPTABLE_VALUES_IN_DAYS} from './constants';
+import {ONE_DAY, INTERVAL_ACCEPTABLE_ERROR, INTERVAL_ACCEPTABLE_VALUES_IN_DAYS, ACCEPTABLE_AMOUNT_DIFFERENCE} from './constants';
 import Transaction from '../model/transaction';
 
-function updatePattern(transId, amount, date, pattern, updateIntervalValue = true) {
-    let newAvgInterval = 0;
+function updatePattern(transId, amount, date, pattern, updateIntervalValue = true, updateAverageAmount = true) {
+    let newAvgInterval = 0, newAvgAmount = 0;
+
     if (updateIntervalValue) {
         const interval = Math.abs(date - pattern.last_transaction_time);
         newAvgInterval = (pattern.average_interval * (pattern.transactions.length - 1) + interval) / pattern.transactions.length;
     } else {
         newAvgInterval = pattern.average_interval;
+    }
+
+    if (updateAverageAmount) {
+        // TODO remember to exclude noise value from transaction length
+        newAvgAmount = (amount + pattern.transactions.length * pattern.average_amount) / (pattern.transactions.length + 1);
+    } else {
+        newAvgAmount = pattern.average_amount;
     }
     
     const trans = pattern.transactions;
@@ -22,7 +30,7 @@ function updatePattern(transId, amount, date, pattern, updateIntervalValue = tru
             transactions: trans,
             updated_at: Date.now(),
             average_interval: newAvgInterval,
-            amount_pattern: [], // TODO
+            average_amount: newAvgAmount,
             recurring: true,
         },
     );
@@ -54,7 +62,7 @@ export async function detectPattern(company, userId, transId, amount, date) {
             last_transaction_id: transId,
             last_transaction_time: date,
             transactions: [transId],
-            amount_pattern: [amount],
+            average_amount: amount,
             average_interval: 0,
         }).catch(e => console.log(e));
 
@@ -70,7 +78,7 @@ export async function detectPattern(company, userId, transId, amount, date) {
     for (let pattern of patterns) {
         if (latestTime < pattern.last_transaction_time) latestTime = pattern.last_transaction_time;
     }
-    
+
     // if this was an old transaction, archive all current patterns associated with this company 
     // and user_id and re-calculate / detect all influenced transactions
     if (latestTime > date) {
@@ -81,14 +89,15 @@ export async function detectPattern(company, userId, transId, amount, date) {
     // sort by transactions list length (descending), by last_transaction_time (ascending)
     patterns.sort((a, b) => b.transactions.length - a.transactions.length || a.last_transaction_time - b.last_transaction_time);
 
-    // TODO compare amount
     let foundPatternFlag = false;
 
     // iterate thru all patterns and look for a suitable one
     // return if find one
     await Promise.each(patterns, pattern => {
         
-        if (foundPatternFlag) return;        
+        if (foundPatternFlag) return;
+        if (pattern.average_amount == 0 && Math.abs(amount) > 30) return; // uh a magic number
+        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount) > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
 
         let interval = Math.abs(date - pattern.last_transaction_time);
         if (interval < pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR 
@@ -103,7 +112,7 @@ export async function detectPattern(company, userId, transId, amount, date) {
         if (interval < pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR 
             && interval > pattern.average_interval - INTERVAL_ACCEPTABLE_ERROR) {
             foundPatternFlag = true;
-            return updatePattern(transId, amount, date, pattern, false);
+            return updatePattern(transId, amount, date, pattern, false, true);
         }
 
     });
@@ -113,10 +122,12 @@ export async function detectPattern(company, userId, transId, amount, date) {
     // iterate thru all non-recurring patterns (individual transactions)
     await Promise.each(patterns, pattern => {
         if (foundPatternFlag) return;
+        if (pattern.average_amount == 0 && Math.abs(amount) > 30) return; // uh a magic number
+        if (pattern.average_amount != 0 && Math.abs(pattern.average_amount - amount) / Math.abs(pattern.average_amount) > ACCEPTABLE_AMOUNT_DIFFERENCE) return;
+
         if (!pattern.recurring && pattern.transactions.length === 1) {
             // check if possible to detect an acceptable pattern
             const dayInterval = Math.round(Math.abs(date - pattern.last_transaction_time) / ONE_DAY);
-            // TODO add number range
             if (INTERVAL_ACCEPTABLE_VALUES_IN_DAYS.includes(dayInterval)) {
                 foundPatternFlag = true;
                 return updatePattern(transId, amount, date, pattern);
