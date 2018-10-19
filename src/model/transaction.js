@@ -26,6 +26,19 @@ export default {
     return Transaction.find(query, null, opt).lean();
   },
 
+  // TODO
+  // find Transactions by query and grouped by user_id
+  findByQueryAndGroupByUser: query => {
+    return Transaction.aggregate([
+      {$match: {...query, skipped: false}},
+      {$group: {_id: '$user_id'}},
+      {$project: {
+        _id: '$user_id',
+        
+      }}
+    ]).exec();
+  },
+
   // get count by query
   getCountByQuery: query => {
     return Transaction.countDocuments(query);
@@ -33,10 +46,10 @@ export default {
 
   /*
    * update transaction
-   * @param {Object} conditions to locate the transaction
+   * @param {Object} query to locate the transaction
    * @param {Object} fields to be updated
    */
-  update: (conditions, fields, opt) => {
-    return Transaction.update(conditions, {$set: fields}, opt);
+  update: (query, fields, opt) => {
+    return Transaction.update(query, {$set: fields}, opt);
   },
 };

@@ -15,8 +15,8 @@ app.use(timeout('10s'));
 const {initMongoDB} = require('./src/middleware/mongodb.js');
 initMongoDB();
 
-app.get('/', transactionController.getRecurring);
-app.post('/', transactionController.upsert);
+app.get('/', transactionController.getRecurringHandler);
+app.post('/', transactionController.upsertHandler);
 
 app.use(haltOnTimedout);
 function haltOnTimedout(req, res, next){
