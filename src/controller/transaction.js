@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import Transaction from '../model/transaction';
 import helper from './helper';
 import Pattern from '../model/pattern';
-import {detectPattern, skip} from './pattern';
+import {detectPattern, archive, markNonRecurring} from './pattern';
 import {INTERVAL_ACCEPTABLE_ERROR, TRANSACTION_FIELDS, ONE_DAY} from './constants';
 
 const PULL_DATE = new Date('2018-08-10'); // for testing TODO change to Date.now()
@@ -13,9 +13,8 @@ async function upsertHandler(req, res) {
     const transactions = req.body.transactions;
 
     transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-    for (let transaction of transactions) {
-        await upsertOneTx(transaction);
-    }
+
+    await Promise.each(transactions, transaction => upsertOneTx(transaction));
 
     const ret = await getRecurring(); // TODO company should be updated company list
     if (!ret.ok) res.status(400).send({recurring_trans: []})
@@ -60,6 +59,7 @@ async function getRecurringHandler(req, res) {
 
 async function getRecurring() {
     return Pattern.findByQuery({recurring: true}).then(patterns => {
+        
         if (!patterns) return {ok: true, recurring_trans: {}};
 
         const companyTxDict = {}; // key: company, value: recurring transactions under the company by all users
@@ -74,7 +74,7 @@ async function getRecurring() {
                     return companyTxDict[pattern.company].push(tx);
                 });
 
-            } else return skip(pattern);
+            } else return markNonRecurring(pattern);
         }).then(async () => {
 
             const recurring_trans = [];

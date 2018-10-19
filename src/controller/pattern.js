@@ -1,5 +1,6 @@
 import Pattern from '../model/pattern';
 import {ONE_DAY, INTERVAL_ACCEPTABLE_ERROR, INTERVAL_ACCEPTABLE_VALUES_IN_DAYS} from './constants';
+import Transaction from '../model/transaction';
 
 function updatePattern(transId, amount, date, pattern, updateIntervalValue = true) {
     let newAvgInterval = 0;
@@ -27,10 +28,22 @@ function updatePattern(transId, amount, date, pattern, updateIntervalValue = tru
     );
 }
 
-// TODO remove skipped field?
-// skip this pattern
-export function skip(pattern) {
-    return Pattern.update({_id: pattern._id}, {recurring: false, skipped: true, updated_at: Date.now()});
+// archive this pattern
+export function archive(pattern) {
+    return Pattern.update({_id: pattern._id}, {recurring: false, archived: true, updated_at: Date.now()});
+}
+
+export function markRecurring(pattern) {
+    return Pattern.update({_id: pattern._id}, {recurring: true, updated_at: Date.now()});
+}
+
+export function markNonRecurring(pattern) {
+    return Pattern.update({_id: pattern._id}, {recurring: false, updated_at: Date.now()});
+}
+
+async function reDetection(company, userId) {
+    const trans = await Transaction.findByQuery({company, user_id: userId}, {sort: {date: 1}});
+    return Promise.each(trans, transaction => detectPattern(company, userId, transaction.trans_id, transaction.amount, transaction.date));
 }
 
 export async function detectPattern(company, userId, transId, amount, date) {
@@ -52,19 +65,30 @@ export async function detectPattern(company, userId, transId, amount, date) {
         return;
     }
 
+    let latestTime = null;
+
+    for (let pattern of patterns) {
+        if (latestTime < pattern.last_transaction_time) latestTime = pattern.last_transaction_time;
+    }
+    
+    // if this was an old transaction, archive all current patterns associated with this company 
+    // and user_id and re-calculate / detect all influenced transactions
+    if (latestTime > date) {
+        await Promise.each(patterns, pattern => archive(pattern));
+        return reDetection(company, userId);
+    }
+
     // sort by transactions list length (descending), by last_transaction_time (ascending)
     patterns.sort((a, b) => b.transactions.length - a.transactions.length || a.last_transaction_time - b.last_transaction_time);
 
     // TODO compare amount
     let foundPatternFlag = false;
 
-    // iterate thru all recurring patterns and look for a suitable pattern
+    // iterate thru all patterns and look for a suitable one
     // return if find one
     await Promise.each(patterns, pattern => {
         
-        if (foundPatternFlag) return;
-        if (!pattern.recurring) return;
-        
+        if (foundPatternFlag) return;        
 
         let interval = Math.abs(date - pattern.last_transaction_time);
         if (interval < pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR 
@@ -82,10 +106,6 @@ export async function detectPattern(company, userId, transId, amount, date) {
             return updatePattern(transId, amount, date, pattern, false);
         }
 
-        // if past expected date already, skip this pattern forever
-        if (Math.abs(date - pattern.last_transaction_time) >= pattern.average_interval + INTERVAL_ACCEPTABLE_ERROR) {
-            return skip(pattern);
-        }
     });
 
     if (foundPatternFlag) return;
@@ -94,7 +114,7 @@ export async function detectPattern(company, userId, transId, amount, date) {
     await Promise.each(patterns, pattern => {
         if (foundPatternFlag) return;
         if (!pattern.recurring && pattern.transactions.length === 1) {
-            // check if possible to match an individual transaction
+            // check if possible to detect an acceptable pattern
             const dayInterval = Math.round(Math.abs(date - pattern.last_transaction_time) / ONE_DAY);
             // TODO add number range
             if (INTERVAL_ACCEPTABLE_VALUES_IN_DAYS.includes(dayInterval)) {
